@@ -233,19 +233,23 @@ Say we are interested in identifying which gages monitor the NF directly (i.e., 
 
 ```{r, warning=F, message=F, results = 'hide', fig.width = 8, fig.height = 5}
 # get_UM() creates a list of all flowlines upstream of the comid of interest ...Traverse NHDPlus network upstream main stem
-NF_UM_comids <- get_UM(network=nofo_flowlines, comid= (flowlines_for_pathlengths %>% st_set_geometry(., NULL) %>% filter(toID==0) %>% select(ID))[[1]]
-                         ) %>%
+NF_UM_comids <- get_UM(
+  network=nofo_flowlines
+  , comid= (flowlines_for_pathlengths %>% 
+              st_set_geometry(., NULL) %>% 
+              filter(toID==0) %>% 
+              select(ID))[[1]]
+          ) %>%
   as_tibble() %>%
   rename(comid=value)
 
 # ... that can be used to select those flowlines from our flowline polylines ...
 NF_flowlines <- filter(nofo_flowlines, comid %in% c(NF_UM_comids$comid)) %>%
   mutate(is_on_mainstem = "Mainstem") %>% 
-  select(is_on_mainstem, comid) %>% 
-  st_set_geometry(., NULL)
+  select(is_on_mainstem, comid) 
 
 # join this to the gages
-gages <- gages %>% left_join(NF_flowlines, by= "comid") %>% 
+gages <- gages %>% left_join(NF_flowlines %>% st_set_geometry(., NULL), by= "comid") %>% 
   mutate(is_on_mainstem = ifelse(is.na(is_on_mainstem), "Not Mainstem", is_on_mainstem))
 ```
 
@@ -255,13 +259,13 @@ gages <- gages %>% left_join(NF_flowlines, by= "comid") %>%
 mapview(nofo_flowlines
         , label = FALSE
         , legend = FALSE
-        , popup = FALSE) + 
+        , popup = FALSE) +
   mapview(gages
       , zcol = "is_on_mainstem"
       , map.types =  "Esri"
       , label = c("station_nm")
       , legend = TRUE
-      , layer.name = ""
+      , layer.name = "gages"
       , popup = popupTable(
           gages
           , zcol = c(
@@ -281,24 +285,93 @@ mapview(nofo_flowlines
 Find the distance between the "N F SHENANDOAH RIVER AT COOTES STORE, VA" and "N F SHENANDOAH RIVER NEAR STRASBURG, VA" gages using `get_pathlength()`. Then, map the flowlines between the two gages using `mapview()`.
 
 ```{r}
+# upstream_of_end_comids <- get_UM(
+#   network=nofo_flowlines
+#   , comid= "8441253" # N F SHENANDOAH RIVER NEAR STRASBURG, VA 
+#   ) %>%
+#   as_tibble() %>%
+#   rename(comid=value)
+# 
+# downstream_of_st_comids <- get_DM(
+#   network=nofo_flowlines
+#   , comid= "8441037" # N F SHENANDOAH RIVER AT COOTES STORE, VA
+#   ) %>%
+#   as_tibble() %>%
+#   rename(comid=value)
+# 
+# 
+# flowlines_for_gages <- filter(nofo_flowlines, comid %in% c(upstream_of_end_comids$comid)
+#                                  & comid %in% c(downstream_of_st_comids$comid)) 
+# 
+# 
+# 
+# flowlines_for_gages_comid <- get_tocomid(flowlines_for_gages, add=TRUE) %>%
+#   rename(ID=comid, toID=tocomid, length=lengthkm) %>% 
+#   select(ID, toID, length) %>% 
+#   st_set_geometry(., NULL)
+# 
+# distances_gages <- get_pathlength(flowlines_for_gages_comid) %>% 
+#   rename(comid=ID,
+#          distance_km=pathlength)
 
+dataset <- get_UT(nofo_flowlines, 8441253) %>% 
+  as_tibble() %>% 
+  rename(comid=value)
+
+winnowed_network <- filter(nofo_flowlines, comid %in% dataset$comid) %>% 
+  get_tocomid(., add = TRUE) %>% 
+  rename(ID=comid, toID=tocomid)
+
+mapview(winnowed_network) + mapview(gages)
+
+distances <- get_pathlength(winnowed_network) %>% 
+  rename(comid = ID)
+
+fnl_distance_pathlength <- get_pathlength(winnowed_network) %>% 
+  filter(ID == 8441037) %>% 
+  rename(comid = ID)
+
+fnl_distance_pathlength %>% glimpse()
 ```
+
+<span style="color: blue;">Using the `get_pathlength` function results in a calculated distance between the gages of **`r fnl_distance_pathlength$pathlength[1]` km**.</span>
 
 #### **Question 2b:**
 
 Now, find the distance between the "N F SHENANDOAH RIVER AT COOTES STORE, VA" and "N F SHENANDOAH RIVER NEAR STRASBURG, VA" gages using the suite of `get_UT()`, `get_DM()`, etc. functions. Like Question 2, map the flowlines between the two gages using `mapview()`. **HINT:** remember that flowlines have lots of geospatial information contained in the data table!
 
 ```{r}
+lower <- get_UT(nofo_flowlines, 8441253) %>% 
+  as_tibble() %>% 
+  rename(comid=value)
 
+upper <- get_DM(nofo_flowlines, 8441037) %>% 
+  as_tibble() %>% 
+  rename(comid=value)
+
+both <- inner_join(lower, upper, by = "comid")
+
+fnl_distance_gets <- both %>% 
+  left_join(nofo_flowlines, by="comid") %>% 
+  distinct(comid, .keep_all = TRUE) %>% 
+  filter(!comid %in% c(8441037)) %>% 
+  summarize(length = sum(lengthkm))
+
+fnl_distance_gets %>% glimpse()
 ```
+
+<span style="color: blue;">Using the `get_UT` and `get_DM` functions results in a calculated distance between the gages of **`r fnl_distance_gets$length[1]` km**.</span>
 
 #### **Question 2c:**
 
 Are the two distances from 2a and 2b the the same? If not, why do you think they might be different?
 
 ```{r}
-
+round(fnl_distance_pathlength$pathlength[1] - fnl_distance_gets$length[1], 3)
 ```
+
+<span style="color: blue;">The difference between the distance calculated using the `get_UT` and `get_DM` functions versus the distance calculated usint `get_pathlength` is **`r round(fnl_distance_pathlength$pathlength[1] - fnl_distance_gets$length[1], 3)` km**.</span>
+
 
 #### **Question 3:**
 
@@ -306,7 +379,27 @@ Select one of the following HUC-8s and develop a table of gages within the water
 
 Upper Oconnee River, GA (03070101); Concord River, MA (01070005); St. Vrain River, CO (10190005); or Crowley Lake, CA (18090102)
 
-```{r}
+```{r, results='hide'}
+# Pull a polygon of the HUC-8 of interest
+clp_watershed <- get_huc8(id='10190007') # you can also pull a HUC-8 using a point or polygon feature
+
+# Pull NHD features within our selected HUC-8 (i.e., our area of interest)
+
+#flowlines
+clp_flowlines <- get_nhdplus(AOI = clp_watershed, 
+                         realization='flowline') 
+#catchments
+clp_catchments <- get_nhdplus(AOI=clp_watershed, 
+                          realization='catchment') %>% 
+ filter(featureid %in% clp_flowlines$comid) 
+                                             
+#waterbodies
+clp_waterbodies <- get_waterbodies(AOI=clp_watershed) 
+
+#USGS stream gages
+gages <- get_nwis(AOI=clp_watershed)
+
+mapview(gages) + mapview(clp_flowlines) + mapview(clp_watershed) 
 
 ```
 
