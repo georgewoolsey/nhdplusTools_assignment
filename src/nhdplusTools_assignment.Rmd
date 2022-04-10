@@ -418,7 +418,7 @@ mapview(clp_flowlines
     )
 ```
 
-<span style="color: blue;">There are **`r nrow(clp_gages)`** gages in the Cache la Poudre River (CLP) watershed. The area of the CLP watershed is **`r st_area(clp_watershed)`**. </span>
+<span style="color: blue;">There are **`r nrow(clp_gages)`** gages in the Cache la Poudre River (CLP) watershed. The area of the CLP watershed is approximately **`r scales::comma(as.numeric(st_area(clp_watershed))/10000)` hectares**. </span>
 
 ### Calculating distances with `get_pathlength()`
 
