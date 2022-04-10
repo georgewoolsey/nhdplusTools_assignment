@@ -349,7 +349,7 @@ Are the two distances from 2a and 2b the the same? If not, why do you think they
 round(fnl_distance_pathlength$pathlength[1] - fnl_distance_gets$length[1], 3)
 ```
 
-<span style="color: blue;">The difference between the distance calculated using the `get_UT` and `get_DM` functions versus the distance calculated usint `get_pathlength` is **`r round(fnl_distance_pathlength$pathlength[1] - fnl_distance_gets$length[1], 3)` km**.</span>
+<span style="color: blue;">The difference between the distance calculated using the `get_UT` and `get_DM` functions versus the distance calculated using `get_pathlength` is **`r round(fnl_distance_pathlength$pathlength[1] - fnl_distance_gets$length[1], 3)` km**.</span>
 
 ## **Question 3:**
 
